@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(cuid())
+
+  firstName String
+  lastName  String?
+
+  email    String @unique
+  password String
+
+  isEmailVerified Boolean @default(false)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  product  Product[]
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  refreshTokenHash String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  sku           String
+  purchasePrice Decimal  @db.Decimal(10, 2)
+  sellingPrice  Decimal  @db.Decimal(10, 2)
+  stockQuantity Int      @default(0)
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, sku])
+  @@unique([userId, id])
+  @@index([userId])
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid())
+  eventType   String
+  aggregateId String
+  payload     Json
+
+  status      OutboxStatus @default(PENDING)
+
+  attempts    Int          @default(0)
+  lastError   String?
+
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status, createdAt])
+}
